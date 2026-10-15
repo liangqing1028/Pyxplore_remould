@@ -12,13 +12,19 @@
 
 功能是否已经通过验证，以 `outputs` 中的验证记录及测试结果为准。尚未生成的安装包不视为已交付。
 
+## 下载安装包
+
+打开 [GitHub 构建与下载页面](https://github.com/liangqing1028/Pyxplore_remould/actions/runs/38777042894)，在 Artifacts 中选择对应电脑的文件：`PyWPEMDesktop-Windows-x64`、`PyWPEMDesktop-macOS-arm64`（Apple Silicon）或 `PyWPEMDesktop-macOS-x64`（Intel）。如提示登录，请使用你的 GitHub 账号。
+
+Windows：下载后解压，在 `dist` 文件夹中运行 `PyWPEMDesktop-Windows-x64-Setup.exe` 安装。便携版是同目录下的 ZIP，另行解压后双击 `PyWPEMDesktop.exe`。Mac：下载后解压，在 `dist` 中打开对应架构的 DMG，再把应用拖入“应用程序”。安装包包含计算依赖和离线模型，无需另外安装 Python。
+
 ## 直接启动桌面版
 
 本机生成的应用位于 `dist/PyWPEMDesktop.app`，适用于 Apple Silicon Mac。安装镜像位于 `dist/PyWPEMDesktop-macOS-arm64.dmg`：打开镜像，把应用拖入“应用程序”，再双击启动。桌面版已包含计算依赖和离线模型，不需要另装 Python。
 
 启动后可点击“打开示例”，选择一个保存位置，再点击“开始分析”。示例默认运行 5 次迭代；若达到上限，界面会显示“需检查”，可增加迭代次数后重新分析。
 
-当前构建使用本地临时签名，尚未做开发者签名和 Apple 公证。从网络下载后，macOS 可能要求在系统设置的“隐私与安全性”中确认打开。Windows x64 和 Intel Mac 的安装包需要完成各自的构建验证，不能使用本机的 ARM 应用包替代。
+当前构建使用本地临时签名，尚未做开发者签名和 Apple 公证。从网络下载后，macOS 可能要求在系统设置的“隐私与安全性”中确认打开。Windows x64 和 Intel Mac 需下载各自的安装包，不能使用本机的 ARM 应用包替代。
 
 ## 开发环境启动
 
