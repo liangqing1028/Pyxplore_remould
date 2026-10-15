@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pywpem-desktop"
+version = "0.1.0"
+description = "A local desktop workbench for PyWPEM scientific analysis"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+  "PySide6==6.8.3", "numpy==1.26.4", "scipy==1.15.3",
+  "pandas==2.3.3", "sympy==1.14.0", "pymatgen==2024.4.13",
+  "matplotlib==3.7.1", "plotly==6.6.0", "monty==2025.3.3",
+  "tqdm==4.67.3", "scikit-learn==1.7.2", "PyWavelets==1.8.0",
+  "ase==3.26.0", "psutil>=6,<8",
+]
+
+[project.optional-dependencies]
+full = ["tensorflow==2.16.2", "tf-keras==2.16.0", "Bgolearn==3.1.2"]
+dev = ["pytest>=8,<10", "pytest-qt>=4.4,<5", "pyinstaller>=6.16,<7", "build>=1,<2"]
+
+[project.gui-scripts]
+pywpem-desktop = "wpem_desktop.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["wpem_desktop*"]
+
+[tool.setuptools.package-data]
+wpem_desktop = ["_vendor/**/*.json", "_vendor/**/*.txt", "_vendor/**/checkpoint", "_vendor/**/*.index", "_vendor/**/*.data-*", "_vendor/LICENSE-*", "assets/*", "assets/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+markers = ["integration: runs scientific analysis", "full: requires machine learning dependencies"]
