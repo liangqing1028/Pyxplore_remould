@@ -86,7 +86,7 @@ runs/时间-编号/
 
 Windows 默认生成可解压运行的 ZIP；安装 Inno Setup 6 后还会生成 Setup 安装程序。Mac 生成对应处理器架构的 DMG，包含应用和“应用程序”快捷入口。
 
-通过标准：源代码测试全部通过，`outputs/bundle-check.json` 中 `status` 为 `passed`，`outputs/packaged-science.xml` 中失败和错误数量均为 0，并且能手动打开应用、运行示例和旋转三维晶胞。请保留 `outputs` 中的报告与截图；自动检查通过仍需在真实桌面确认显示和操作正常。
+通过标准：源代码测试全部通过，`outputs/bundle-check.json` 中 `status` 为 `passed`，`outputs/packaged-science.xml` 中失败和错误数量均为 0，并且能手动打开应用、运行示例和旋转三维晶胞。没有可用显卡的构建环境可能得到 `passed_with_manual_checks`；这表示计算和普通界面检查通过，三维图尚需在有显卡的电脑上确认，不能据此声称三维图已经渲染成功。请保留 `outputs` 中的报告与截图；自动检查通过仍需在真实桌面确认显示和操作正常。
 
 需要逐步执行时：
 

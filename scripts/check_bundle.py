@@ -25,7 +25,7 @@ def main():
         executable = ROOT / "dist/PyWPEMDesktop/PyWPEMDesktop"
     output = ROOT / "outputs"
     output.mkdir(exist_ok=True)
-    for name in ("bundle-check.json", "bundle-smoke.png", "bundle-interactive.png", "packaged-science.xml"):
+    for name in ("bundle-check.json", "bundle-smoke.png", "bundle-interactive.png", "bundle-interactive.json", "packaged-science.xml"):
         (output / name).unlink(missing_ok=True)
     project_path = output / "packaged-check" / "打包验证.wpem"
     project = Project.open(project_path) if project_path.exists() else Project.create(project_path)
@@ -59,6 +59,9 @@ def main():
     subprocess.run([str(executable), "--smoke-html", str(interactive), "--smoke-test", str(output / "bundle-interactive.png")],
                    env=environment, cwd=output, timeout=90, check=True)
     assert (output / "bundle-interactive.png").is_file()
+    interactive_check = json.loads((output / "bundle-interactive.json").read_text(encoding="utf-8"))
+    assert isinstance(interactive_check["webgl_rendered"], bool)
+    manual_checks = [] if interactive_check["webgl_rendered"] else ["当前构建环境无可用 WebGL，需在有显卡的电脑上确认三维晶胞显示和旋转。"]
     xrd_run = project.create_run("xrd", {
         "wavelength": [1.540593, 1.544414], "two_theta_range": [15, 75], "iter_max": 1,
         "InitializationEpoch": 0, "cpu": 2, "low_bound": 20, "up_bound": 70, "subset_number": 11,
@@ -76,12 +79,15 @@ def main():
         subprocess.run([sys.executable, "-m", "pytest", "tests/test_science.py", "-q",
                         "--junitxml=" + str(science_report)], env=environment, cwd=ROOT,
                        stdout=stream, stderr=subprocess.STDOUT, timeout=1200, check=True)
-    report = {"status": "passed", "platform": platform.platform(), "architecture": platform.machine(),
+    report = {"status": "passed_with_manual_checks" if manual_checks else "passed", "platform": platform.platform(), "architecture": platform.machine(),
               "executable": str(executable), "worker_result": result, "cif_result": cif_result,
-              "xrd_result": xrd_result, "screenshot": str(screenshot), "interactive_rendered": True,
+              "xrd_result": xrd_result, "screenshot": str(screenshot), "interactive_rendered": interactive_check["webgl_rendered"],
+              "required_manual_checks": manual_checks,
               "scientific_regression": str(science_report)}
     (output / "bundle-check.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("Packaged workers, model inference, multi-process XRD, Chinese paths, and GUI rendering passed.")
+    print("Packaged workers, model inference, multi-process XRD, Chinese paths, and GUI checks completed.")
+    for check in manual_checks:
+        print(check)
 
 
 if __name__ == "__main__":

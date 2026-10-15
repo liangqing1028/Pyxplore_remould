@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import multiprocessing
 import os
 import sys
@@ -47,9 +48,21 @@ def main():
         def capture():
             window.grab().save(options.smoke_test)
             application.quit()
+        def capture_html(rendered):
+            if not isinstance(rendered, bool):
+                application.exit(2)
+                return
+            Path(options.smoke_test).with_suffix(".json").write_text(
+                json.dumps({"webgl_rendered": rendered}), encoding="utf-8")
+            capture()
         if options.smoke_html:
             window.show_html(Path(options.smoke_html).resolve())
-            window.web_view.loadFinished.connect(lambda success: QTimer.singleShot(1000, capture) if success else application.exit(2))
+            script = """Array.from(document.querySelectorAll('canvas')).some(canvas => {
+                const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                return !!gl && !gl.isContextLost() && canvas.width > 0 && canvas.height > 0;
+            })"""
+            window.web_view.loadFinished.connect(lambda success: QTimer.singleShot(
+                1000, lambda: window.web_view.page().runJavaScript(script, capture_html)) if success else application.exit(2))
             QTimer.singleShot(30000, lambda: application.exit(2))
         else:
             QTimer.singleShot(1200, capture)

@@ -146,6 +146,8 @@ class ParameterEditor(QWidget):
             self.control.setChecked(value)
         elif field.get("choices"):
             self.control = QComboBox()
+            self.control.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            self.control.setMinimumContentsLength(12)
             self.control.addItems(field["choices"])
             self.control.setCurrentText(str(value))
         else:

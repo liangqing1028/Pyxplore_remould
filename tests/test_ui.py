@@ -81,6 +81,9 @@ def test_failed_worker_does_not_appear_as_success(qtbot, tmp_path):
 
 
 def test_plotly_is_available_offline_in_desktop_view(qtbot, tmp_path):
+    import json
+    import subprocess
+    import sys
     import plotly.graph_objects as go
     path = tmp_path / "offline.html"
     go.Figure(go.Scatter(x=[1, 2, 3], y=[2, 4, 3])).write_html(path, include_plotlyjs=True)
@@ -95,3 +98,8 @@ def test_plotly_is_available_offline_in_desktop_view(qtbot, tmp_path):
     qtbot.waitUntil(lambda: bool(loaded), timeout=10000)
     assert loaded[0] == "object"
     window.close()
+    screenshot = tmp_path / "smoke.png"
+    subprocess.run([sys.executable, "-m", "wpem_desktop", "--smoke-html", str(path),
+                    "--smoke-test", str(screenshot)], timeout=60, check=True)
+    assert screenshot.is_file()
+    assert json.loads(screenshot.with_suffix(".json").read_text(encoding="utf-8")) == {"webgl_rendered": False}
