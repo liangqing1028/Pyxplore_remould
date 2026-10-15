@@ -236,7 +236,7 @@ def execute(operation, inputs, params, directory):
         if key == "cif":
             summary = {"晶格参数": value[0], "原子坐标": value[1], "密度（g/cm³）": value[2]}
             if params.get("relaxation"):
-                summary["结构弛豫"] = json.loads((directory / "output_xrd/relaxation.json").read_text())
+                summary["结构弛豫"] = json.loads((directory / "output_xrd/relaxation.json").read_text(encoding="utf-8"))
         else:
             summary = {"结构因子": json_value(value[0]), "模拟数据点数": len(value[1])}
             np.savetxt(directory / "Simulation_WPEM/spectrum.csv", np.column_stack((value[1], value[2])), delimiter=",")
@@ -301,7 +301,7 @@ def execute(operation, inputs, params, directory):
         summary = {"矩阵形状": list(value.shape)}
     elif key == "adjacency":
         path = Path(inputs["edges"])
-        edge = np.asarray(json.loads(path.read_text()) if path.suffix.lower() == ".json" else load_array(path))
+        edge = np.asarray(json.loads(path.read_text(encoding="utf-8")) if path.suffix.lower() == ".json" else load_array(path))
         edge = np.atleast_2d(edge)
         if edge.shape[1] != 2 or not np.isfinite(edge).all() or np.any(edge < 0) or not np.equal(edge, np.floor(edge)).all():
             raise ValueError("边列表应为两列非负整数。")
@@ -346,7 +346,7 @@ def run_request(request_path):
                              parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"无效数值：{value}")))
         operation = BY_KEY[request["operation"]]
         result["operation"] = operation.key
-        result["engine_commit"] = json.loads((Path(__file__).parent / "_vendor/upstream.json").read_text())["commit"]
+        result["engine_commit"] = json.loads((Path(__file__).parent / "_vendor/upstream.json").read_text(encoding="utf-8"))["commit"]
         params = request["parameters"]
         validate_parameters(operation, params)
         inputs = {}

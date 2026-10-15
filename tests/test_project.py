@@ -12,7 +12,7 @@ def test_project_portable_runs_and_source_protection(tmp_path):
     original = source.read_bytes()
     project = Project.create(tmp_path / "项目" / "样品.wpem")
     first = project.create_run("convert", {}, {"spectrum": str(source)})
-    request = json.loads((first / "request.json").read_text())
+    request = json.loads((first / "request.json").read_text(encoding="utf-8"))
     staged = first / request["inputs"]["spectrum"]
     staged.write_text("changed")
     second = project.create_run("convert", {}, {"spectrum": str(source)})

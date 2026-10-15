@@ -4,7 +4,7 @@ from wpem_desktop.catalog import API_PATH, OPERATIONS, parameters
 
 
 def test_all_public_scientific_capabilities_are_reachable():
-    api = ast.parse(API_PATH.read_text())
+    api = ast.parse(API_PATH.read_text(encoding="utf-8"))
     exported = {node.name for node in api.body if isinstance(node, ast.FunctionDef) and not node.name.startswith("_")}
     direct = {operation.api for operation in OPERATIONS}
     integrated = {"export_refined_cifs", "FileTypeCovert"}

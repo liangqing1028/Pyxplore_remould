@@ -282,6 +282,7 @@ class MainWindow(QMainWindow):
             form = QVBoxLayout(group)
             for specification in operation.inputs:
                 label = QLabel(specification.label)
+                label.setWordWrap(True)
                 form.addWidget(label)
                 picker = FilePicker(specification.kind, specification.multiple)
                 picker.button.setAccessibleName("选择" + specification.label)
@@ -326,6 +327,7 @@ class MainWindow(QMainWindow):
                 editor = ParameterEditor(field)
                 self.editors[field["key"]] = editor
                 label = QLabel(field["label"])
+                label.setWordWrap(True)
                 label.setToolTip(field["key"])
                 form.addRow(label, editor)
             layout.addWidget(group)
@@ -346,7 +348,9 @@ class MainWindow(QMainWindow):
                     continue
                 editor = ParameterEditor(field)
                 self.background_editors[field["key"]] = editor
-                form.addRow(field["label"], editor)
+                label = QLabel(field["label"])
+                label.setWordWrap(True)
+                form.addRow(label, editor)
             layout.addWidget(group)
         layout.addStretch()
         self.parameter_scroll.setWidget(content)
@@ -447,7 +451,7 @@ class MainWindow(QMainWindow):
             if run["status"] in {"running", "queued"}:
                 result_path = project.resolve(run["path"]) / "result.json"
                 if result_path.is_file():
-                    run["status"] = json.loads(result_path.read_text())["status"]
+                    run["status"] = json.loads(result_path.read_text(encoding="utf-8"))["status"]
                 else:
                     run["status"] = "cancelled"
         project.save()

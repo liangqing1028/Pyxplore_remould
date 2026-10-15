@@ -25,7 +25,7 @@ def test_every_operation_has_usable_form(qtbot, tmp_path):
             window.editors["SoluteAtom"].set_value("Ru2+")
         window.collect_parameters()
         QApplication.processEvents()
-        assert window.parameter_scroll.widget().width() <= window.parameter_scroll.viewport().width()
+        assert window.parameter_scroll.widget().width() <= window.parameter_scroll.viewport().width(), operation.key
     window.close()
 
 
@@ -47,6 +47,13 @@ def test_ui_runs_real_worker_and_restores_result(qtbot, tmp_path):
     reopened = Project.open(project.path)
     assert reopened.data["runs"][0]["status"] == "success"
     window.close()
+    reopened.data["runs"][0]["status"] = "running"
+    reopened.save()
+    restored = MainWindow()
+    qtbot.addWidget(restored)
+    restored.set_project(reopened)
+    assert reopened.data["runs"][0]["status"] == "success"
+    restored.close()
 
 
 def test_peak_editor_preserves_numeric_binding_energies(qtbot):

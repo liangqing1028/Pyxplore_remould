@@ -11,7 +11,7 @@ def run_analysis(tmp_path, operation, parameters, files):
     project = Project.create(tmp_path / "project.wpem")
     run = project.create_run(operation, parameters, files)
     code = run_request(run / "request.json")
-    result = json.loads((run / "result.json").read_text())
+    result = json.loads((run / "result.json").read_text(encoding="utf-8"))
     assert code == 0, result.get("traceback")
     return run, result
 
@@ -24,11 +24,11 @@ def test_conversion_and_bad_request_are_recorded(tmp_path, monkeypatch):
     np.testing.assert_array_equal(np.loadtxt(run / "converted.csv", delimiter=","), [[10, 4], [11, 5], [12, 6]])
     assert result["engine_commit"] and result["versions"]["numpy"]
     request_path = run / "request.json"
-    request = json.loads(request_path.read_text())
+    request = json.loads(request_path.read_text(encoding="utf-8"))
     request["inputs"]["spectrum"] = "../../../outside.csv"
-    request_path.write_text(json.dumps(request))
+    request_path.write_text(json.dumps(request), encoding="utf-8")
     assert run_request(request_path) == 1
-    assert json.loads((run / "result.json").read_text())["status"] == "failed"
+    assert json.loads((run / "result.json").read_text(encoding="utf-8"))["status"] == "failed"
 
 
 def test_adjacency_and_laplacian_include_isolated_nodes(tmp_path, monkeypatch):
@@ -61,5 +61,5 @@ def test_symmetry_arithmetic_rejects_python_execution(tmp_path):
     np.testing.assert_allclose(apply_operation("-x+1/2,y,z+1/3", ["x", "y", "z"], [0.2, 0.3, 0.4]), [0.3, 0.3, 0.4 + 1/3])
     target = tmp_path / "executed"
     with pytest.raises(ValueError):
-        apply_operation(f"__import__('pathlib').Path('{target}').touch(),y,z", ["x", "y", "z"], [0, 0, 0])
+        apply_operation(f"__import__('pathlib').Path({str(target)!r}).touch(),y,z", ["x", "y", "z"], [0, 0, 0])
     assert not target.exists()
