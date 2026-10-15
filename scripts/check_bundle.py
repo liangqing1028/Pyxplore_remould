@@ -17,6 +17,8 @@ from wpem_desktop.project import Project
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     if sys.platform == "darwin":
         executable = ROOT / "dist/PyWPEMDesktop.app/Contents/MacOS/PyWPEMDesktop"
     elif sys.platform == "win32":

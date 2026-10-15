@@ -4,10 +4,13 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     root = Path(__file__).resolve().parent.parent
     dist = root / "dist"
     if platform.system() == "Darwin":
