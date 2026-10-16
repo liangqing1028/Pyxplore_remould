@@ -14,7 +14,7 @@
 
 ## 下载安装包
 
-打开 [GitHub 构建与下载页面](https://github.com/liangqing1028/Pyxplore_remould/actions/runs/38777042894)，在 Artifacts 中选择对应电脑的文件：`PyWPEMDesktop-Windows-x64`、`PyWPEMDesktop-macOS-arm64`（Apple Silicon）或 `PyWPEMDesktop-macOS-x64`（Intel）。如提示登录，请使用你的 GitHub 账号。
+打开 [GitHub 构建与下载页面](https://github.com/liangqing1028/Pyxplore_remould/actions/runs/38904494741)，在 Artifacts 中选择对应电脑的文件：`PyWPEMDesktop-Windows-x64`、`PyWPEMDesktop-macOS-arm64`（Apple Silicon）或 `PyWPEMDesktop-macOS-x64`（Intel）。如提示登录，请使用你的 GitHub 账号。
 
 Windows：下载后解压，在 `dist` 文件夹中运行 `PyWPEMDesktop-Windows-x64-Setup.exe` 安装。便携版是同目录下的 ZIP，另行解压后双击 `PyWPEMDesktop.exe`。Mac：下载后解压，在 `dist` 中打开对应架构的 DMG，再把应用拖入“应用程序”。安装包包含计算依赖和离线模型，无需另外安装 Python。
 
