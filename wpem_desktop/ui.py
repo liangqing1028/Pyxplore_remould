@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         self.run_button = QPushButton("开始分析")
         self.run_button.setObjectName("primary")
         self.run_button.clicked.connect(self.start_analysis)
-        self.run_button.setEnabled(False)
+        self.run_button.setToolTip("尚未建项目时会先提示创建，并保留已选文件与参数。")
         self.cancel_button = QPushButton("停止计算")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.runner.cancel)
@@ -409,11 +409,11 @@ class MainWindow(QMainWindow):
     def new_project(self):
         if not self.ensure_idle():
             return
-        path, _ = QFileDialog.getSaveFileName(self, "新建项目：请选择独立目录保存", str(Path.home() / "Documents" / "新分析" / "新分析.wpem"),
+        path, _ = QFileDialog.getSaveFileName(self, "新建项目：已选文件和参数将保留，请选择独立目录保存", str(Path.home() / "Documents" / "新分析" / "新分析.wpem"),
                                              "PyWPEM 项目 (*.wpem)")
         if path:
             try:
-                self.set_project(Project.create(path))
+                self.set_project(Project.create(path), preserve_form=True)
             except Exception as error:
                 self.error(error)
 
@@ -430,7 +430,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self.error(error)
 
-    def set_project(self, project):
+    def set_project(self, project, preserve_form=False):
         if self.project and project.path == self.project.path:
             return
         lock = QLockFile(str(project.path) + ".lock")
@@ -461,7 +461,8 @@ class MainWindow(QMainWindow):
         recent = [str(project.path)] + [path for path in recent if path != str(project.path)]
         self.settings.setValue("recent_projects", recent[:8])
         self.refresh_lists()
-        self.change_operation()
+        if not preserve_form:
+            self.change_operation()
         last = self.project.data.get("last_operation")
         if last in BY_KEY:
             self.nav.setCurrentRow(self.groups.index(BY_KEY[last].group))
@@ -848,7 +849,8 @@ class MainWindow(QMainWindow):
                              "<li>确认射线波长、数据单位和分析区间；需要时展开高级参数。</li>"
                              "<li>开始分析，可在运行日志中查看真实计算阶段，也可停止。</li>"
                              "<li>双击结果文件预览曲线、图片或数据，导出结果或完整记录。</li></ol>"
-                             "<p>列表参数使用 [10, 90]，各相晶格参数使用 [[a,b,c,α,β,γ], ...]。"
+                             "<p>也可先选择文件和参数，再点击开始分析创建项目；取消创建会保留当前输入。</p>"
+                             "<p>角度范围支持 5-40 或 [5, 40]；其他列表参数使用 [10, 90]，各相晶格参数使用 [[a,b,c,α,β,γ], ...]。"
                              "XPS 峰通过峰表编辑。留空使用自动计算或原始默认值。</p>"
                              "<p>数据预览最多 2000 行、100 列；完整结果不会截断。</p>"
                              "<p>请检查收敛状态、残差与物理合理性。结构预求解只改写运行目录内的副本。</p>")

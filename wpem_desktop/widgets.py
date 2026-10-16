@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -154,6 +155,8 @@ class ParameterEditor(QWidget):
             self.control = QLineEdit()
             self.control.setMinimumWidth(160)
             self.control.setPlaceholderText("必填" if field["required"] else "自动 / 使用默认值")
+            if key in {"two_theta_range", "ang_range"}:
+                self.control.setPlaceholderText("例如 5-40 或 [5, 40]")
             self.set_value(value)
         self.setToolTip(key)
         self.control.setAccessibleName(field["label"])
@@ -184,6 +187,14 @@ class ParameterEditor(QWidget):
             if self.field["required"]:
                 raise ValueError("请填写：" + self.field["label"])
             return None
+        if self.field["key"] in {"two_theta_range", "ang_range"}:
+            number = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+            interval = re.fullmatch(rf"({number})\s*-\s*({number})", text)
+            if interval:
+                values = [float(endpoint) for endpoint in interval.groups()]
+                if not np.isfinite(values).all():
+                    raise ValueError(self.field["label"] + "：请输入有限数值。")
+                return values
         try:
             value = json.loads(text)
         except ValueError:
@@ -192,7 +203,7 @@ class ParameterEditor(QWidget):
                     value = json.loads("[" + text + "]")
                 except ValueError as error:
                     raise ValueError(self.field["label"] + "：列表请使用 [值1, 值2] 格式。") from error
-            elif isinstance(self.field["default"], (int, float, list, tuple)):
+            elif isinstance(self.field["default"], (int, float, list, tuple)) or self.field["key"] in {"two_theta_range", "ang_range"}:
                 raise ValueError(self.field["label"] + "：请输入有效的数值或列表。")
             else:
                 value = text
