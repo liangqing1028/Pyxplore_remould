@@ -1,7 +1,7 @@
 [Setup]
 AppId=PyWPEMDesktop
 AppName=PyWPEM Desktop
-AppVersion=0.1.1
+AppVersion=0.1.2
 DefaultDirName={autopf}\PyWPEM Desktop
 DefaultGroupName=PyWPEM Desktop
 OutputDir=..\dist

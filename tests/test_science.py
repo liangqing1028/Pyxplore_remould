@@ -58,6 +58,54 @@ def test_official_xrd_case_and_safe_refined_cif(project, xrd_run):
     np.testing.assert_allclose(actual, expected, atol=0.05)
 
 
+def test_xrd_doublet_at_upper_scan_boundary(project):
+    waves = [1.54056, 1.54439]
+    outside_peak = 40.09287982261595
+    spacing = waves[1] / (2 * np.sin(np.deg2rad(outside_peak / 2)))
+    cell = 4 * spacing  # Place the NaCl 400 doublet across the 40-degree boundary.
+    cif = project.root / "边界晶相.cif"
+    cif.write_text((DATA / "class_3_multi_phase/data/NaCl.cif").read_text().replace("5.62", str(cell)), encoding="utf-8")
+    original = cif.read_bytes()
+    x = np.linspace(5, 40, 701)
+    y = 20 + 0.02 * x
+    for squared_hkl in (3, 4, 8, 11, 12, 16):
+        for wave, strength in zip(waves, (200, 100)):
+            center = np.rad2deg(2 * np.arcsin(wave * np.sqrt(squared_hkl) / (2 * cell)))
+            y += strength * np.exp(-((x - center) / 0.08) ** 2)
+    spectrum = project.root / "边界谱图.csv"
+    np.savetxt(spectrum, np.column_stack((x, y)), delimiter=",")
+    run, result = perform(project, "xrd", {
+        "wavelength": waves, "two_theta_range": [5, 40], "iter_max": 1,
+        "low_bound": 15, "up_bound": 38, "subset_number": 3, "cpu": 1,
+        "background": {"poly_n": 2, "bac_num": 100},
+    }, {"spectrum": str(spectrum), "cifs": [str(cif)]})
+    peaks = pd.read_csv(run / "peak0.csv")
+    for wave in waves:
+        centers = np.rad2deg(2 * np.arcsin(wave / (2 * peaks.Distance)))
+        assert ((centers > 5) & (centers < 40)).all()
+    assert not ((peaks.H == 4) & (peaks.K == 0) & (peaks.L == 0)).any()
+    assert np.isfinite(result["metrics"]["Rwp"])
+    assert (run / "DecomposedComponents/fitting_profile.csv").is_file()
+    assert list((run / "WPEMFittingResults").glob("*_refined.cif"))
+    assert cif.read_bytes() == original
+
+
+def test_xrd_phase_without_complete_reflections_has_clear_error(project):
+    source = project.root / "无反射区间.csv"
+    x = np.linspace(5, 10, 101)
+    np.savetxt(source, np.column_stack((x, 20 + np.exp(-((x - 7) / 0.2) ** 2))), delimiter=",")
+    run = project.create_run("xrd", {
+        "wavelength": [1.54056, 1.54439], "two_theta_range": [5, 10],
+        "background": {"poly_n": 2, "bac_num": 50},
+    }, {"spectrum": str(source), "cifs": [str(DATA / "class_3_multi_phase/data/NaCl.cif")]})
+    executable = os.environ.get("PYWPEM_TEST_EXECUTABLE")
+    status = subprocess.run([executable, "--worker", str(run / "request.json")], timeout=240).returncode if executable else run_request(run / "request.json")
+    result = json.loads((run / "result.json").read_text(encoding="utf-8"))
+    assert status == 1
+    assert result["status"] == "failed"
+    assert "NaCl.cif" in result["error"] and "完整反射峰" in result["error"]
+
+
 def test_background_constant_model_is_consistent(project):
     source = project.root / "synthetic-background.csv"
     x = np.linspace(10, 80, 701)

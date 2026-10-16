@@ -30,4 +30,4 @@ exe = EXE(pyz, analysis.scripts, [('X utf8', None, 'OPTION')], exclude_binaries=
 collection = COLLECT(exe, analysis.binaries, analysis.datas, strip=False, upx=False, name='PyWPEMDesktop')
 if os.sys.platform == 'darwin':
     app = BUNDLE(collection, name='PyWPEMDesktop.app', bundle_identifier='org.pywpem.desktop',
-                 info_plist={'CFBundleShortVersionString': '0.1.1', 'NSHighResolutionCapable': True})
+                 info_plist={'CFBundleShortVersionString': '0.1.2', 'NSHighResolutionCapable': True})

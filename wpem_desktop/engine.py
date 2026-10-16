@@ -13,6 +13,7 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from . import __version__
 from .catalog import BY_KEY, parameters
@@ -166,6 +167,24 @@ def background_std_for_range(value, frame, interval):
     raise ValueError("背景标准差数组长度与分析区间的数据点数不一致。")
 
 
+def xrd_preprocess_range(frame, interval, wavelengths):
+    angles = frame.x
+    if interval is not None:
+        angles = angles[(angles >= interval[0]) & (angles <= interval[1])]
+    if len(angles) < 3:
+        raise ValueError("XRD 分析区间内需要至少 3 个有效数据点。")
+    lower, upper = float(angles.min()), float(angles.max())
+    if not 0 <= lower < upper <= 180:
+        raise ValueError("XRD 数据的 2θ 角度必须位于 0 到 180 度之间。")
+    reference = min(wavelengths)
+    # The solver requires every wavelength of an HKL strictly inside the sampled range.
+    if reference < max(wavelengths):
+        upper = float(np.rad2deg(2 * np.arcsin(reference / max(wavelengths) * np.sin(np.deg2rad(upper / 2)))))
+    if lower >= upper:
+        raise ValueError("XRD 分析区间过窄，无法容纳所有波长对应的反射峰。")
+    return reference, (float(np.nextafter(lower, upper)), float(np.nextafter(upper, lower)))
+
+
 def execute(operation, inputs, params, directory):
     from ._vendor.pywpem import WPEM as wpem
 
@@ -195,16 +214,22 @@ def execute(operation, inputs, params, directory):
         variance = fit_background(wpem, frame, directory, background)
         wavelength = params.get("wavelength", [1.54056, 1.54439])
         waves = wavelength if isinstance(wavelength, list) else [wavelength]
-        if not waves or any(not isinstance(wave, (int, float)) or wave <= 0 for wave in waves):
-            raise ValueError("XRD 精修波长应为正数列表，例如 [1.54056, 1.54439]。")
+        if len(waves) not in (1, 2) or any(not isinstance(wave, (int, float)) or not np.isfinite(wave) or wave <= 0 for wave in waves):
+            raise ValueError("XRD 精修需要 1 或 2 条有限正数波长，例如 [1.54056, 1.54439]。")
         lattice, densities = [], []
-        theta_range = params.get("two_theta_range") or (float(frame.x.min()), float(frame.x.max()))
         if key == "xrd":
+            fit_waves = waves
+            if len(waves) == 2 and (params.get("Ave_Waves") or params.get("ZeroShift")):
+                fit_waves = [2 / 3 * waves[0] + 1 / 3 * waves[1]]
+            reference, theta_range = xrd_preprocess_range(frame, params.get("two_theta_range"), fit_waves)
+            print(f"反射筛选：参考波长 {reference:.8g} Å，2θ 范围 {theta_range[0]:.8g}–{theta_range[1]:.8g}°；仅保留所有波长峰位均在实际数据区间内的 HKL。", flush=True)
             for index, cif in enumerate(inputs["cifs"]):
                 print(f"阶段：晶相 {index + 1} / {len(inputs['cifs'])} 预处理", flush=True)
-                constants, _, density = wpem.CIFpreprocess(cif, wavelength=waves[0],
+                constants, _, density = wpem.CIFpreprocess(cif, wavelength=reference,
                                                           two_theta_range=theta_range, work_dir=str(directory), **preprocess)
                 reflection = directory / "output_xrd" / f"{Path(cif).stem}HKL.csv"
+                if pd.read_csv(reflection).empty:
+                    raise ValueError(f"晶相 {Path(cif).name} 在当前数据区间内没有可用于拟合的完整反射峰，请检查波长、分析范围和 CIF。")
                 shutil.copy2(reflection, directory / f"peak{index}.csv")
                 lattice.append(constants)
                 densities.append(density)
