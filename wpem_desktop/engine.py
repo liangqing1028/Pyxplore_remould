@@ -185,6 +185,19 @@ def xrd_preprocess_range(frame, interval, wavelengths):
     return reference, (float(np.nextafter(lower, upper)), float(np.nextafter(upper, lower)))
 
 
+def xrd_bragg_range(frame, interval, lower=None, upper=None):
+    angles = frame.x if interval is None else frame.loc[frame.x.between(*interval), "x"]
+    if len(angles) < 3:
+        raise ValueError("XRD 分析区间内需要至少 3 个有效数据点。")
+    start, stop = float(angles.min()), float(angles.max())
+    lower, upper = start if lower is None else lower, stop if upper is None else upper
+    if any(not isinstance(value, (int, float)) or not np.isfinite(value) for value in (lower, upper)):
+        raise ValueError("Bragg 选峰上下界必须为有限数值。")
+    if lower >= upper or max(lower, start) >= min(upper, stop):
+        raise ValueError(f"Bragg 选峰范围 {lower:g}–{upper:g}° 与实际分析区间 {start:g}–{stop:g}° 不匹配，请调整选峰上下界或留空自动选择。")
+    return lower, upper
+
+
 def execute(operation, inputs, params, directory):
     from ._vendor.pywpem import WPEM as wpem
 
@@ -211,11 +224,14 @@ def execute(operation, inputs, params, directory):
         summary = {"背景标准差": json_value(variance), "数据点数": len(frame)}
     elif key in {"xrd", "xrd_manual"}:
         frame, original = normalize_input(inputs["spectrum"], directory, "intensity")
-        variance = fit_background(wpem, frame, directory, background)
         wavelength = params.get("wavelength", [1.54056, 1.54439])
         waves = wavelength if isinstance(wavelength, list) else [wavelength]
         if len(waves) not in (1, 2) or any(not isinstance(wave, (int, float)) or not np.isfinite(wave) or wave <= 0 for wave in waves):
             raise ValueError("XRD 精修需要 1 或 2 条有限正数波长，例如 [1.54056, 1.54439]。")
+        params["low_bound"], params["up_bound"] = xrd_bragg_range(
+            frame, params.get("two_theta_range"), params.get("low_bound"), params.get("up_bound"))
+        print(f"Bragg 选峰范围：{params['low_bound']:g}–{params['up_bound']:g}°", flush=True)
+        variance = fit_background(wpem, frame, directory, background)
         lattice, densities = [], []
         if key == "xrd":
             fit_waves = waves

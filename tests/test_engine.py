@@ -63,3 +63,33 @@ def test_symmetry_arithmetic_rejects_python_execution(tmp_path):
     with pytest.raises(ValueError):
         apply_operation(f"__import__('pathlib').Path({str(target)!r}).touch(),y,z", ["x", "y", "z"], [0, 0, 0])
     assert not target.exists()
+
+
+def test_cif_without_symmetry_operations_preserves_axis_setting(tmp_path):
+    from wpem_desktop._vendor.pywpem.Extinction.XRDpre import read_cif, UnitCellAtom
+
+    cif = tmp_path / "axis-setting.cif"
+    cif.write_text("""data_axes
+_cell_length_a 18.1047
+_cell_length_b 6.5348
+_cell_length_c 10.6439
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'P n 21 a'
+_symmetry_Int_Tables_number 33
+loop_
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe 0.13124 0.24729 0.35468
+""")
+    _, _, atoms, _, operations = read_cif(str(cif))
+    actual = np.array([atom[1:] for atom in UnitCellAtom(atoms, operations)])
+    expected = np.array([[0.13124, 0.24729, 0.35468], [0.36876, 0.74729, 0.85468],
+                         [0.86876, 0.74729, 0.64532], [0.63124, 0.24729, 0.14532]])
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual[np.lexsort(actual.T)], expected[np.lexsort(expected.T)], atol=1e-12)
+    from wpem_desktop._vendor.pywpem.Extinction.XRDpre import structure_extinction
+    assert structure_extinction([["Fe", *coordinate] for coordinate in actual], [0, 0, 1], 10, 1.54056)

@@ -58,6 +58,28 @@ def test_official_xrd_case_and_safe_refined_cif(project, xrd_run):
     np.testing.assert_allclose(actual, expected, atol=0.05)
 
 
+def test_xrd_exported_volume_and_plot_match_numeric_results(xrd_run):
+    from pymatgen.core import Lattice
+    from wpem_desktop._vendor.pywpem.Extinction.CifReader import CifFile
+
+    run, result = xrd_run
+    cif = next((run / "WPEMFittingResults").glob("*_refined.cif"))
+    block = next(iter(CifFile.from_file(str(cif)).data.values())).data
+    cell = result["summary"]["精修后晶格参数"][0]
+    assert float(block["_cell_volume"]) == pytest.approx(Lattice.from_parameters(*cell).volume, abs=1e-8)
+    observed = np.loadtxt(run / "intensity.csv", delimiter=",")
+    fitted = np.loadtxt(run / "DecomposedComponents/fitting_profile.csv", delimiter=",")
+    for path in (run / "figures").glob("*.curves.json"):
+        curves = {curve["label"]: curve for axis in json.loads(path.read_text()) for curve in axis["curves"]}
+        if "WPEM fitting profile" in curves:
+            x = curves["Experimental Profile (crystal)"]["x"]
+            np.testing.assert_allclose(curves["Experimental Profile (crystal)"]["y"], np.interp(x, observed[:, 0], observed[:, 1]))
+            np.testing.assert_allclose(curves["WPEM fitting profile"]["y"], fitted[:, 1])
+            break
+    else:
+        pytest.fail("Missing final XRD fitting plot")
+
+
 def test_xrd_doublet_at_upper_scan_boundary(project):
     waves = [1.54056, 1.54439]
     outside_peak = 40.09287982261595
@@ -104,6 +126,48 @@ def test_xrd_phase_without_complete_reflections_has_clear_error(project):
     assert status == 1
     assert result["status"] == "failed"
     assert "NaCl.cif" in result["error"] and "完整反射峰" in result["error"]
+
+
+def test_three_phase_refinement_reaches_bragg_updates(project):
+    from pymatgen.core import Lattice
+
+    cells = [[5.00123442, 6.81942858, 8.93636781, 90, 90, 90],
+             [6.3297, 9.4646, 11.1, 62.6109, 83.29, 72.2418],
+             [18.1047, 6.5348, 10.6439, 90, 90, 90]]
+    hkl = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1],
+                    [0, 1, 1], [1, -1, 0], [1, 0, -1], [0, 1, -1]])
+    waves = [1.54056, 1.54439]
+    x = np.linspace(5, 40, 701)
+    y = 20 + 0.02 * x
+    files = []
+    for index, cell in enumerate(cells):
+        lattice = Lattice.from_parameters(*cell)
+        spacing = np.array([lattice.d_hkl(row) for row in hkl])
+        centers = np.rad2deg(2 * np.arcsin(np.array(waves)[None, :] / (2 * spacing[:, None])))
+        keep = ((centers > 5) & (centers < 40)).all(axis=1)
+        peaks = pd.DataFrame(hkl[keep], columns=["H", "K", "L"])
+        peaks["Mult"] = 1
+        peaks["2theta/TOF"] = centers[keep, 0]
+        path = project.root / f"三相反射-{index}.csv"
+        peaks.to_csv(path, index=False)
+        files.append(str(path))
+        for pair in centers[keep]:
+            for center, strength in zip(pair, (150, 75)):
+                y += strength * np.exp(-((x - center) / 0.10) ** 2)
+    spectrum = project.root / "三相精修谱.csv"
+    np.savetxt(spectrum, np.column_stack((x, y)), delimiter=",")
+    run, result = perform(project, "xrd_manual", {
+        "wavelength": waves, "Lattice_constants": cells, "two_theta_range": [5, 40],
+        "subset_number": 9, "iter_max": 3, "iter_limit": 0, "lock_num": 10,
+        "cpu": 1, "asy_C": 0,
+        "background": {"poly_n": 2, "bac_num": 100},
+    }, {"spectrum": str(spectrum), "peaks": files})
+    assert result["metrics"]["iterations"] == 3
+    assert np.isfinite(result["metrics"]["Rwp"])
+    for cell in result["summary"]["精修后晶格参数"]:
+        assert np.isfinite(cell).all()
+        assert np.linalg.eigvalsh(Lattice.from_parameters(*cell).metric_tensor).min() > 0
+    assert (run / "DecomposedComponents/fitting_profile.csv").is_file()
 
 
 def test_background_constant_model_is_consistent(project):

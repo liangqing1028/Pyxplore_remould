@@ -38,7 +38,7 @@ class BraggLawDerivation:
                 2 * sym_h * sym_l * cos(angle2) / (sym_a * sym_c))
         elif crystal_system == 7:  # Triclinic
             __m = sqrt(
-                sin(angle3) ** 2 - cos(angle1) ** 2 + cos(angle2) ** 2 + 2 * cos(angle1) * cos(angle2) * cos(angle3))
+                sin(angle3) ** 2 - cos(angle1) ** 2 - cos(angle2) ** 2 + 2 * cos(angle1) * cos(angle2) * cos(angle3))
             __p = cos(angle1) - cos(angle2) * cos(angle3)
             __n = cos(angle2) - cos(angle1) * cos(angle3)
             __q = cos(angle3) - cos(angle1) * cos(angle2)
@@ -266,60 +266,36 @@ class BraggLawDerivation:
         if fixed == False: 
             # updata latt params by Bragg
             # defined for mixed rays have two wavelength
-            if len( wavelength) == 2:
-                error_fit = []
-                for i in range(int(len( old_p1_list) / 2)):
-                    mui_error1 = ( p1_list[2 * i] - old_p1_list[2 * i]) ** 2
-                    mui_error2 = ( p1_list[2 * i + 1] - old_p1_list[2 * i + 1]) ** 2
-                    if mui_error1 >= mui_error2:
-                        error_fit.append(mui_error1)
-                    else:
-                        error_fit.append(mui_error2)
-                error_fit_sort = copy.deepcopy(error_fit)
-                error_fit_sort.sort()
-
-                h_fit_abc, k_fit_abc, l_fit_abc = [], [], []
-                mui_fit_abc_list = []
-
-                # search index
-                for i_err in range(len(error_fit)):
-                    for j in range(len(error_fit)):
-                        if error_fit_sort[i_err] == error_fit[j] and low_bound <= p1_list[2 * j] <= up_bound:
-                            for t in range(len(  wavelength)):
-                                mui_fit_abc_list.append(p1_list[2 * j + t])
-                            h_fit_abc.append(lattice_h[j])
-                            k_fit_abc.append(lattice_k[j])
-                            l_fit_abc.append(lattice_l[j])
-                    if len(h_fit_abc) ==   subset_number:
+            if len(wavelength) not in (1, 2):
+                raise ValueError('Bragg refinement requires one or two wavelengths.')
+            old_peaks = np.asarray(old_p1_list, dtype=float).reshape(-1, len(wavelength))
+            new_peaks = np.asarray(p1_list, dtype=float).reshape(old_peaks.shape)
+            errors = np.max((new_peaks - old_peaks) ** 2, axis=1)
+            candidates = np.flatnonzero(np.isfinite(new_peaks).all(axis=1)
+                                        & (new_peaks[:, 0] >= low_bound)
+                                        & (new_peaks[:, 0] <= up_bound))
+            ordered = candidates[np.argsort(errors[candidates], kind='stable')]
+            selected = ordered[:subset_number]
+            if not len(selected):
+                raise ValueError(f'Bragg 选峰范围 {low_bound:g}–{up_bound:g}° 内没有可用反射，请调整选峰上下界。')
+            if crystal_sys == 7:
+                hkl = np.column_stack((lattice_h, lattice_k, lattice_l))
+                design = np.column_stack((hkl ** 2, hkl[:, 0] * hkl[:, 1],
+                                          hkl[:, 0] * hkl[:, 2], hkl[:, 1] * hkl[:, 2]))
+                basis = []
+                for index in ordered:
+                    if np.linalg.matrix_rank(design[basis + [index]]) > len(basis):
+                        basis.append(index)
+                    if len(basis) == 6:
                         break
-                total_peak_n = len(mui_fit_abc_list)
+                if len(basis) < 6 or subset_number < 6:
+                    raise ValueError('三斜晶格精修需要至少 6 个独立反射约束，请增大 Bragg 选峰数或选峰范围。')
+                # Retain a full-rank basis before filling the remaining slots by peak error.
+                selected = np.array(basis + [index for index in ordered if index not in basis][:subset_number - 6])
+            h_fit_abc, k_fit_abc, l_fit_abc = np.asarray([lattice_h, lattice_k, lattice_l])[:, selected]
+            mui_fit_abc_list = new_peaks[selected].ravel()
+            total_peak_n = len(mui_fit_abc_list)
 
-            elif len(wavelength) == 1:
-                error_fit = []
-                for i in range(len(old_p1_list)):
-                    mui_error = (p1_list[i] - old_p1_list[i]) ** 2
-                    error_fit.append(mui_error)
-
-                error_fit_sort = copy.deepcopy(error_fit)
-                error_fit_sort.sort()
-
-                h_fit_abc, k_fit_abc, l_fit_abc = [], [], []
-                mui_fit_abc_list = []
-
-                # search index
-                for i_err in range(len(error_fit)):
-                    for j in range(len(error_fit)):
-                        if error_fit_sort[i_err] == error_fit[j] and low_bound <= p1_list[j] <= up_bound:
-                            mui_fit_abc_list.append(  p1_list[j])
-                            h_fit_abc.append(lattice_h[j])
-                            k_fit_abc.append(lattice_k[j])
-                            l_fit_abc.append(lattice_l[j])
-                    if len(h_fit_abc) ==   subset_number:
-                        break
-                total_peak_n = len(mui_fit_abc_list)
-
-            else:
-                print('only for mixed rays with one or two wavelength')
 
             i_ter = 0
             if   crystal_sys == 1:
@@ -555,97 +531,40 @@ class BraggLawDerivation:
                         return ini_a, ini_b, ini_c, ini_la1, cal_la2, ini_la3, mui_fit
                     
             elif crystal_sys == 7:
-                # original version Sep 19 2023
-                cal_a = copy.deepcopy(ini_a)
-                cal_b = copy.deepcopy(ini_b)
-                cal_c = copy.deepcopy(ini_c)
-                cal_la1 = copy.deepcopy(ini_la1)
-                cal_la2 = copy.deepcopy(ini_la2)
-                cal_la3 = copy.deepcopy(ini_la3)
+                from pymatgen.core import Lattice
+                from scipy.optimize import least_squares
 
-                while (True):
-                    i_ter += 1
-                    ini_a = copy.deepcopy(cal_a)
-                    ini_b = copy.deepcopy(cal_b)
-                    ini_c = copy.deepcopy(cal_c)
-                    ini_la1 = copy.deepcopy(cal_la1)
-                    ini_la2 = copy.deepcopy(cal_la2)
-                    ini_la3 = copy.deepcopy(cal_la3)
+                hkl = np.column_stack((h_fit_abc, k_fit_abc, l_fit_abc))
+                initial = Lattice.from_parameters(ini_a, ini_b, ini_c, ini_la1, ini_la2, ini_la3)
+                indices = np.tril_indices(3)
+                factor = np.linalg.cholesky(np.linalg.inv(initial.metric_tensor))
+                lower = np.full(6, -np.inf)
+                lower[[0, 2, 5]] = 0
 
-                    derive_term =  self.update_derivative(crystal_sys, total_peak_n, h_fit_abc, k_fit_abc, l_fit_abc,
-                                                        ini_a, ini_b, ini_c, ini_la1, ini_la2, ini_la3, wavelength,
-                                                        mui_fit_abc_list)
+                # A positive Cholesky diagonal keeps the reciprocal metric physical throughout refinement.
+                def peak_positions(values, reflections):
+                    matrix = np.zeros((3, 3))
+                    matrix[indices] = values
+                    inverse_spacing = np.linalg.norm(reflections @ matrix, axis=1)
+                    sine = inverse_spacing[:, None] * np.asarray(wavelength)[None, :] / 2
+                    return np.rad2deg(2 * np.arcsin(np.minimum(sine, 1))).ravel()
 
-                    a_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc,
-                                                        ini_a - tao, ini_b, ini_c, ini_la1, ini_la2, ini_la3, 1, wavelength,
-                                                        mui_fit_abc_list)
+                def residual(values):
+                    return peak_positions(values, hkl) - mui_fit_abc_list
 
-                    b_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a,
-                                                        ini_b - tao, ini_c, ini_la1, ini_la2, ini_la3, 2, wavelength,
-                                                        mui_fit_abc_list)
+                result = least_squares(residual, factor[indices], bounds=(lower, np.inf),
+                                       method='trf', x_scale='jac', max_nfev=400)
+                if not result.success or not np.isfinite(result.x).all():
+                    raise ValueError('三斜晶格精修未收敛，未采用无效晶格参数：' + result.message)
+                factor[indices] = result.x
+                cell = Lattice(np.linalg.inv(factor.T))
+                all_hkl = np.column_stack((lattice_h, lattice_k, lattice_l))
+                inverse_spacing = np.linalg.norm(all_hkl @ factor, axis=1)
+                if np.any(inverse_spacing * max(wavelength) / 2 >= 1):
+                    raise ValueError('三斜晶格更新后存在不满足 Bragg 定律的反射，未采用该更新。')
+                mui_fit = peak_positions(result.x, all_hkl).tolist()
+                return (*cell.parameters, mui_fit)
 
-                    c_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a, ini_b,
-                                                        ini_c - tao, ini_la1, ini_la2, ini_la3, 3, wavelength, mui_fit_abc_list)
-
-                    la1_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a, ini_b,
-                                                            ini_c, ini_la1 - tao, ini_la2, ini_la3, 4, wavelength,mui_fit_abc_list)
-
-                    la2_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a, ini_b,
-                                                            ini_c, ini_la1, ini_la2 - tao, ini_la3, 5, wavelength,mui_fit_abc_list)
-
-                    la3_lef_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a, ini_b,
-                                                            ini_c, ini_la1, ini_la2, ini_la3 - tao, 6, wavelength,mui_fit_abc_list)
-
-                    a_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc,
-                                                            ini_a + tao, ini_b, ini_c, ini_la1, ini_la2, ini_la3, 1, wavelength,
-                                                            mui_fit_abc_list)
-
-                    b_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a,
-                                                            ini_b + tao, ini_c, ini_la1, ini_la2, ini_la3, 2,wavelength,
-                                                            mui_fit_abc_list)
-
-                    c_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a, ini_b,
-                                                            ini_c + tao, ini_la1, ini_la2, ini_la3, 3, wavelength,
-                                                            mui_fit_abc_list)
-
-                    la1_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a,
-                                                            ini_b, ini_c, ini_la1 + tao, ini_la2, ini_la3, 4, wavelength,
-                                                            mui_fit_abc_list)
-
-                    la2_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a,
-                                                            ini_b, ini_c, ini_la1, ini_la2 + tao, ini_la3, 5, wavelength,
-                                                            mui_fit_abc_list)
-
-                    la3_right_derive = self.two_up_derivative(crystal_sys, h_fit_abc, k_fit_abc, l_fit_abc, ini_a,
-                                                            ini_b, ini_c, ini_la1, ini_la2, ini_la3 + tao, 6, wavelength,
-                                                            mui_fit_abc_list)
-
-                    a_learning_rate = 2 * tao / (a_right_derive - a_lef_derive)
-                    b_learning_rate = 2 * tao / (b_right_derive - b_lef_derive)
-                    c_learning_rate = 2 * tao / (c_right_derive - c_lef_derive)
-                    la1_learning_rate = 2 * tao / (la1_right_derive - la1_lef_derive)
-                    la2_learning_rate = 2 * tao / (la2_right_derive - la2_lef_derive)
-                    la3_learning_rate = 2 * tao / (la3_right_derive - la3_lef_derive)
-
-                    cal_a = ini_a - derive_term[0] * a_learning_rate
-                    cal_b = ini_b - derive_term[1] * b_learning_rate
-                    cal_c = ini_c - derive_term[2] * c_learning_rate
-                    cal_la1 = ini_la1 - derive_term[3] * la1_learning_rate
-                    cal_la2 = ini_la2 - derive_term[4] * la2_learning_rate
-                    cal_la3 = ini_la3 - derive_term[5] * la3_learning_rate
-
-                    if abs(cal_a - ini_a) <= 1e-8 and abs(cal_b - ini_b) <= 1e-8 and abs(cal_c - ini_c) <= 1e-8 \
-                            and abs(cal_la1 - ini_la1) <= 1e-8 and abs(cal_la2 - ini_la2) <= 1e-8 and abs(
-                        cal_la3 - ini_la3) <= 1e-8:
-                        break
-
-                    if i_ter >= 400:
-                        break
-                d_list, _, _ = self.get_d_space(crystal_sys, lattice_h, lattice_k,
-                                                              lattice_l, cal_a, cal_b,cal_c, cal_la1, cal_la2, cal_la3)
-                mui_fit = self.get_new_mui(d_list, wavelength)
-
-                return cal_a, cal_b, cal_c, cal_la1, cal_la2, cal_la3, mui_fit
 
             else:
                 return -1

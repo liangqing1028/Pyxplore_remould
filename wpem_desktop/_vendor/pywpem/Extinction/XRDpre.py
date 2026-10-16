@@ -259,6 +259,15 @@ def read_cif(cif_dir):
         else:
             symbol = None
             spaceG = None
+
+        if symmetric_operation is None and '_symmetry_space_group_name_H-M' in v:
+            from pymatgen.symmetry.groups import SpaceGroup
+
+            # The number alone loses nonstandard axis settings such as Pn21a.
+            group = SpaceGroup(spaceG)
+            if space_group_code != -1 and group.int_number != space_group_code:
+                raise ValueError('CIF space-group symbol and number disagree.')
+            symmetric_operation = [operation.as_xyz_str() for operation in group.symmetry_ops]
         
     return latt, spaceG, sites, symbol,symmetric_operation
 ########################################################################
@@ -407,21 +416,8 @@ def unit_cell_range(ori_atom):
         y_ = ori_atom[atom][2]
         z_ = ori_atom[atom][3]
 
-        if x_ < 0 : x_ += 1 
-        elif x_ >= 1 : x_ -= 1
-        else : pass 
-
-        if y_ < 0 : y_ += 1 
-        elif y_ >= 1 : y_ -= 1
-        else : pass
-
-        if z_ < 0 : z_ += 1 
-        elif z_ >= 1 : z_ -= 1
-        else : pass
-
-        x_ = get_float(x_,3)
-        y_ = get_float(y_,3)
-        z_ = get_float(z_,3)
+        # Truncation to 3 decimals breaks symmetry-related structure factors.
+        x_, y_, z_ = (np.round(np.mod([x_, y_, z_], 1), 12) % 1).tolist()
 
         if 0 <= x_ <=1 and 0 <= y_ <=1 and 0 <= z_ <=1:
             ori_atom[atom][1] = x_  

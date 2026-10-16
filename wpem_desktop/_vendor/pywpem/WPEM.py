@@ -197,7 +197,7 @@ def export_refined_cifs(cif_files, lattice_constants, output_dir=None,
     lattice constants are deliberately not used as a matching condition, since
     their numerical values may differ before refinement. The exporter then
     preserves the matched structure's atom sites, occupancies, and symmetry
-    operations while updating only the six ``_cell_*`` fields.
+    operations while updating the cell parameters and derived volume.
 
     Args:
         cif_files: Optional CIF path or paths to restrict the candidates. The
@@ -212,6 +212,8 @@ def export_refined_cifs(cif_files, lattice_constants, output_dir=None,
     Returns:
         A list of paths to the written CIF files.
     """
+    from pymatgen.core import Lattice
+
     destination = Path(output_dir) if output_dir is not None else Path.cwd()
     destination.mkdir(parents=True, exist_ok=True)
     cell_keys = (
@@ -256,6 +258,7 @@ def export_refined_cifs(cif_files, lattice_constants, output_dir=None,
         for block in cif.data.values():
             for key, value in zip(cell_keys, cell):
                 block.data[key] = '{:.8f}'.format(float(value))
+            block.data['_cell_volume'] = '{:.8f}'.format(Lattice.from_parameters(*cell).volume)
 
         filename = '{}_refined.cif'.format(cif_path.stem)
         output_path = destination / filename

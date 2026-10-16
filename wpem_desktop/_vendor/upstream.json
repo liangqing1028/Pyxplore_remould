@@ -87,9 +87,10 @@
   },
   "missing": [],
   "local_patches": [
-    "WPEM.py: opt-in structured diagnostics and isolated-node Laplacian handling",
+    "EMBraggOpt/BraggLawDerivation.py: unique finite peak selection, explicit empty/underdetermined selection errors, corrected triclinic metric sign and positive-metric least-squares cell refinement",
+    "WPEM.py: opt-in structured diagnostics, isolated-node Laplacian handling and refined-CIF cell volume",
     "GraphStructure/graph.py: output directory and structured graph records",
-    "Extinction/XRDpre.py: restricted arithmetic for CIF symmetry; no console prompts; honor manual parameters",
+    "Extinction/XRDpre.py: restricted symmetry arithmetic; preserve declared H-M axis setting and full coordinate precision; no console prompts; honor manual parameters",
     "WPEMXPS/XPSEM.py: parse orbital fractions without eval",
     "Background/BacDeduct.py: numeric XRDML conversion without eval",
     "Amorphous/QuantitativeCalculation/AmorphousRDF.py: degree conversion, normalization and input validation",
@@ -97,6 +98,7 @@
     "Extinction/Relaxer.py: write relaxed CIF and energy report",
     "XRDSimulation/Simulation.py: use the CIF basename for outputs on both operating systems",
     "StructureOpt/SiteOpt.py: bound Bayesian candidate generation before allocating exponential subsets",
-    "WPEMXAS/EXAFS.py: valid default window hop size and explicit invalid-input error"
+    "WPEMXAS/EXAFS.py: valid default window hop size and explicit invalid-input error",
+    "EMBraggOpt/EMBraggSolver.py: plot original observed intensity and the exported final fitted profile without baseline offsets"
   ]
 }

@@ -796,8 +796,8 @@ class WPEMsolver(object):
         print('After update the background :  ',
               'Rp = %.3f' % (p_error_sum / obs * 100) + ' | Rwp = %.3f' % (np.sqrt(wp_error_sum / obs) * 100) + ' | Rsquare = %.3f' % (Rsquare(y, i_obser)))
 
-        plt.plot(two_theta, inten_upbac+bac_up, '-k', label="Experimental Profile (crystal)", )
-        plt.plot(two_theta, i_calc+bac_up, 'g', linestyle='--',label="WPEM fitting profile",)
+        plt.plot(two_theta, i_obser, '-k', label="Experimental Profile (crystal)", )
+        plt.plot(two_theta, i_calc+bac_up+min_i, 'g', linestyle='--',label="WPEM fitting profile",)
         plt.xlabel('2\u03b8\u00B0')
         plt.ylabel('I (a.u.)')
         plt.legend()

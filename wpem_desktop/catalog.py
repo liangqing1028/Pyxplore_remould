@@ -136,6 +136,7 @@ CHOICES = {"MODEL": ["REFINEMENT", "ANALYSIS"], "Model": ["XRD", "XPS", "Raman"]
            "bac_var_type": ["constant", "polynomial", "multivariate gaussian"],
            "mode": ["nearest", "mirror", "constant", "wrap", "interp"], "transform": ["fourier", "wavelet"]}
 OVERRIDES = {"wavelength": [1.54056, 1.54439], "Lattice_constants": None, "Var": None,
+             "low_bound": None, "up_bound": None,
              "atomIdentifier": [["CuII", "2p3/2", 933.7], ["CuII", "2p1/2", 954.0]],
              "satellitePeaks": [], "mix_component": 2, "lowboundary": 10.0, "upboundary": 90.0, "size": None}
 
